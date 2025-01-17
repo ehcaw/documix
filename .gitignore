@@ -1,0 +1,50 @@
+# Next.js frontend
+documix-frontend/node_modules
+documix-frontend/.pnp
+documix-frontend/.pnp.js
+documix-frontend/.yarn/install-state.gz
+
+# testing
+documix-frontend/coverage
+
+# next.js
+documix-frontend/.next/
+documix-frontend/out/
+
+# production
+documix-frontend/build
+
+# misc
+documix-frontend/.DS_Store
+documix-frontend/*.pem
+
+# debug
+documix-frontend/npm-debug.log*
+documix-frontend/yarn-debug.log*
+documix-frontend/yarn-error.log*
+
+# local env files
+documix-frontend/.env*.local
+documix-frontend/.env
+documix-frontend/.env.development
+documix-frontend/.env.test
+documix-frontend/.env.production
+
+# vercel
+documix-frontend/.vercel
+
+# typescript
+documix-frontend/*.tsbuildinfo
+documix-frontend/next-env.d.ts
+
+# IDE specific files
+.idea
+.vscode
+*.swp
+*.swo
+
+# Backend
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+backend/venv/
