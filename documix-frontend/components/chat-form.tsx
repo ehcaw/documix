@@ -22,18 +22,25 @@ export function ChatForm({
   const [url, setUrl] = useState("");
   const [displayContent, setDisplayContent] = useState("");
   const [collectionName, setCollectionName] = useState<string | null>(null);
+  const [isScrapingLoading, setIsScrapingLoading] = useState(false);
 
   // Modify useChat to use your backend endpoints
-  const { messages, input, setInput, append, isLoading, error } = useChat({
+  const { messages, input, setInput, append, isLoading } = useChat({
     api: "/api/chat",
     body: {
-      collection_name: collectionName,
+      collection_name: collectionName
     },
-    onError: (error) => {
-      toast.error("Failed to send message");
-      console.error(error);
+    onResponse: (response) => {
+      if (!response.ok) {
+        toast.error("Failed to get response");
+      }
     },
+    onFinish: () => {
+      toast.success("Response received");
+    }
   });
+  
+  
 
   const validateUrl = (url: string) => {
     try {
@@ -50,7 +57,7 @@ export function ChatForm({
       toast.error("Please enter a valid URL");
       return;
     }
-
+  
     try {
       const response = await fetch("http://localhost:5000/scrape", {
         method: "POST",
@@ -59,20 +66,21 @@ export function ChatForm({
         },
         body: JSON.stringify({ url }),
       });
-
+  
       if (!response.ok) {
-        throw new Error("Failed to load content");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       setDisplayContent(data.markdown);
-      setCollectionName(data.collection_name);
+      setCollectionName(data.collection_name); // Store collection name for chat
       toast.success("Documentation loaded successfully!");
     } catch (error) {
       toast.error("Failed to load content");
       console.error(error);
     }
   };
+  
 
   const copyToClipboard = async () => {
     try {
@@ -83,11 +91,23 @@ export function ChatForm({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    void append({ content: input, role: "user" });
-    setInput("");
+    
+    if (!input?.trim()) return;
+  
+    try {
+      await append({
+        content: input,
+        role: "user",
+      });
+    } catch (error) {
+      toast.error("Failed to send message");
+      console.error(error);
+    }
   };
+  
+  
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -111,9 +131,19 @@ export function ChatForm({
               onChange={(e) => setUrl(e.target.value)}
               className="flex-1"
             />
-            <Button onClick={handleUrlSubmit} variant="secondary">
-              <Link className="mr-2 h-4 w-4" />
-              Load
+            <Button 
+              onClick={handleUrlSubmit} 
+              variant="secondary"
+              disabled={isScrapingLoading}
+            >
+              {isScrapingLoading ? (
+                <div className="animate-spin">...</div>
+              ) : (
+                <>
+                  <Link className="mr-2 h-4 w-4" />
+                  Load
+                </>
+              )}
             </Button>
           </div>
         </CardHeader>

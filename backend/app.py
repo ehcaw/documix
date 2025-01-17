@@ -21,6 +21,7 @@ load_dotenv()
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
+
 def validate_url_format(url: str) -> bool:
     """Validate basic URL format before scraping"""
     if not url:
@@ -269,40 +270,36 @@ def scrape():
 
         return jsonify({
             'markdown': markdown_content,
-            'message': f'Documentation scraped successfully. Processed {len(scraper.visited_urls)} pages.'
+            'message': f'Documentation scraped successfully. Processed {len(scraper.visited_urls)} pages.',
+            'collection_name': collection_name 
         })
 
     except Exception as e:
         print(f"Error in scrape endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
+        
 @app.route('/query', methods=['POST'])
 def query_docs():
-    data = request.get_json()
-    query = data.get('query')
-    
-    # Use current collection from app config
-    collection_name = app.config.get('CURRENT_COLLECTION')
-
-    if not query:
-        return jsonify({'error': 'Query is required'}), 400
-
-    if not collection_name:
-        return jsonify({'error': 'No documentation has been scraped yet. Please scrape a URL first.'}), 400
-
     try:
+        data = request.get_json()
+        query = data.get('query')
+        collection_name = app.config.get('CURRENT_COLLECTION')
+        
+        if not query:
+            return jsonify({'error': 'Query is required'}), 400
+            
+        if not collection_name:
+            return jsonify({'error': 'No collection loaded'}), 400
+            
         rag_system = RAGSystem(collection_name=collection_name)
         response = rag_system.generate_response(query)
-        relevant_docs = rag_system.query(query)
-
-        return jsonify({
-            'answer': response,
-            'relevant_documents': relevant_docs['documents'][0],
-            'metadata': relevant_docs.get('metadatas', [])
-        })
-
+        
+        return jsonify({'answer': response}), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
 
 @app.route('/collections', methods=['GET'])
 def list_collections():
