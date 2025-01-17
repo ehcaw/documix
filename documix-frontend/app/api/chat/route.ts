@@ -1,3 +1,4 @@
+// app/api/chat/route.ts
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
@@ -14,21 +15,24 @@ export async function POST(req: Request) {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to get response");
+      throw new Error(`Server responded with ${response.status}`);
     }
 
     const data = await response.json();
-    
-    if (!data.answer) {
-      throw new Error("No answer received from backend");
-    }
+    return new Response(JSON.stringify({ role: "assistant", content: data.answer }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-    return Response.json({ role: "assistant", content: data.answer });
   } catch (error) {
     console.error('Chat API Error:', error);
-    return Response.json(
-      { error: "Failed to process chat request" },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to process chat request' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 }
