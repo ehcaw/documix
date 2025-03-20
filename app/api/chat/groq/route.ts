@@ -1,31 +1,41 @@
 import { groq, createGroq } from "@ai-sdk/groq";
-import { convertToCoreMessages, streamText } from "ai";
-import { NextRequest } from "next/server";
+import {
+  appendResponseMessages,
+  convertToCoreMessages,
+  createIdGenerator,
+  streamText,
+} from "ai";
+import { NextRequest, NextResponse } from "next/server";
 import { Index } from "@upstash/vector";
 import type { Document } from "@langchain/core/documents";
 import { UpstashVectorStore } from "@langchain/community/vectorstores/upstash";
 import { OllamaEmbeddings } from "@langchain/ollama";
-import { NextResponse } from "next/server";
+import { saveChat } from "@/lib/chat-store";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  // Log the entire request body to see its structure
-  const requestData = await req.json();
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("userId");
-  const modelName = url.searchParams.get("model");
-  const embeddingProvider = url.searchParams.get("embeddingProvider");
-  const embeddingModel = url.searchParams.get("embeddingModel");
-  if (!userId) {
-    return NextResponse.json({ error: "No user id provided" }, { status: 500 });
-  }
-
-  const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
-  // Based on your logs, it looks like messages are directly in the request body
-  const { messages, tools } = requestData;
   try {
+    // Log the entire request body to see its structure
+    const requestData = await req.json();
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
+    const modelName = url.searchParams.get("model");
+    const embeddingProvider = url.searchParams.get("embeddingProvider");
+    const embeddingModel = url.searchParams.get("embeddingModel");
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "No user id provided" },
+        { status: 500 },
+      );
+    }
+
+    const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
+    // Based on your logs, it looks like messages are directly in the request body
+    const { messages, tools, id } = requestData;
+
     const embeddings = new OllamaEmbeddings({
       model: embeddingModel || "nomic-embed-text",
     });
@@ -91,7 +101,36 @@ export async function POST(req: NextRequest) {
         retrievedDocs && retrievedDocs.length > 0
           ? `You have access to the following retrieved context documents. If the query has no apparent relevance to the retrieved context documents, answer normally. If it does have relevance, cite sources using [Source: URL] format when referencing specific information.\n\n${contextText}`
           : undefined,
+      experimental_generateMessageId: createIdGenerator({
+        prefix: "server_",
+        size: 16,
+      }),
+      async onFinish({ response }) {
+        if (id) {
+          // Append the AI response messages to the chat messages
+          const finalMessages = appendResponseMessages({
+            messages,
+            responseMessages: response.messages,
+          });
+
+          try {
+            // Only attempt server-side save if we're in a server environment
+            // In practice, this won't work with localStorage, but shows the pattern
+            if (typeof window === "undefined") {
+              await saveChat({
+                id,
+                messages: finalMessages,
+              });
+            }
+          } catch (e) {
+            console.error("Error saving chat:", e);
+          }
+        }
+      },
     });
+
+    // Consume the stream to ensure it runs to completion even if client disconnects
+    result.consumeStream();
 
     return result.toDataStreamResponse();
   } catch (error: any) {

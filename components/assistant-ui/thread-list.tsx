@@ -1,66 +1,102 @@
-import type { FC } from "react";
-import {
-  ThreadListItemPrimitive,
-  ThreadListPrimitive,
-} from "@assistant-ui/react";
+import { FC, useEffect, useState } from "react";
 import { ArchiveIcon, PlusIcon } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { listChats } from "@/lib/chat-store";
 
-export const ThreadList: FC = () => {
-  return (
-    <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5">
-      <ThreadListNew />
-      <ThreadListItems />
-    </ThreadListPrimitive.Root>
-  );
-};
+interface Thread {
+  id: string;
+  title: string;
+  createdAt: number;
+}
 
-const ThreadListNew: FC = () => {
+interface ThreadListProps {
+  onNewThread: () => void;
+  activeThreadId: string | null;
+  setActiveThreadId: (id: string) => void;
+}
+
+export const ThreadList: FC<ThreadListProps> = ({
+  onNewThread,
+  activeThreadId,
+  setActiveThreadId,
+}) => {
+  const [threads, setThreads] = useState<Thread[]>([]);
+
+  // Load the list of threads
+  useEffect(() => {
+    const loadThreads = async () => {
+      const chatList = await listChats();
+      setThreads(chatList);
+    };
+
+    loadThreads();
+
+    // Remove the interval
+    // const interval = setInterval(loadThreads, 2000);
+    // return () => clearInterval(interval);
+  }, [activeThreadId]); // Reload when activeThreadId changes
+
+  // Handle archiving a thread
+  const handleArchiveThread = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Remove from localStorage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`chat-${id}`);
+    }
+
+    // Remove from state
+    setThreads(threads.filter((thread) => thread.id !== id));
+
+    // Don't auto-create a new thread, just reset active thread ID
+    if (id === activeThreadId) {
+      setActiveThreadId(""); // Set to null instead of creating new thread
+    }
+  };
+
   return (
-    <ThreadListPrimitive.New asChild>
-      <Button className="data-[active]:bg-muted hover:bg-muted flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start" variant="ghost">
+    <div className="flex flex-col items-stretch gap-1.5">
+      {/* New Thread Button */}
+      <Button
+        className="flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start"
+        variant="ghost"
+        onClick={onNewThread}
+      >
         <PlusIcon />
         New Thread
       </Button>
-    </ThreadListPrimitive.New>
-  );
-};
 
-const ThreadListItems: FC = () => {
-  return <ThreadListPrimitive.Items components={{ ThreadListItem }} />;
-};
-
-const ThreadListItem: FC = () => {
-  return (
-    <ThreadListItemPrimitive.Root className="data-[active]:bg-muted hover:bg-muted focus-visible:bg-muted focus-visible:ring-ring flex items-center gap-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2">
-      <ThreadListItemPrimitive.Trigger className="flex-grow px-3 py-2 text-start">
-        <ThreadListItemTitle />
-      </ThreadListItemPrimitive.Trigger>
-      <ThreadListItemArchive />
-    </ThreadListItemPrimitive.Root>
-  );
-};
-
-const ThreadListItemTitle: FC = () => {
-  return (
-    <p className="text-sm">
-      <ThreadListItemPrimitive.Title fallback="New Chat" />
-    </p>
-  );
-};
-
-const ThreadListItemArchive: FC = () => {
-  return (
-    <ThreadListItemPrimitive.Archive asChild>
-      <TooltipIconButton
-        className="hover:text-primary text-foreground ml-auto mr-3 size-4 p-0"
-        variant="ghost"
-        tooltip="Archive thread"
-      >
-        <ArchiveIcon />
-      </TooltipIconButton>
-    </ThreadListItemPrimitive.Archive>
+      {/* Thread Items */}
+      <div className="mt-2">
+        {threads.length === 0 ? (
+          <div className="text-muted-foreground px-3 py-2 text-sm">
+            No threads yet
+          </div>
+        ) : (
+          threads.map((thread) => (
+            <div
+              key={thread.id}
+              className={`flex items-center gap-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 ${
+                thread.id === activeThreadId ? "bg-muted" : "hover:bg-muted"
+              }`}
+              onClick={() => setActiveThreadId(thread.id)}
+            >
+              <button className="flex-grow px-3 py-2 text-start">
+                <p className="text-sm">{thread.title || "New Chat"}</p>
+              </button>
+              <TooltipIconButton
+                className="hover:text-primary text-foreground ml-auto mr-3 size-4 p-0"
+                variant="ghost"
+                tooltip="Archive thread"
+                onClick={(e) => handleArchiveThread(thread.id, e)}
+              >
+                <ArchiveIcon />
+              </TooltipIconButton>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 };
