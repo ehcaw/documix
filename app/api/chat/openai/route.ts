@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
   const modelName = url.searchParams.get("model") || "gpt-4o";
   const embeddingProvider = url.searchParams.get("embeddingProvider");
   const embeddingModel = url.searchParams.get("embeddingModel");
-  const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
+  const userId = url.searchParams.get("userId");
+  const chatApiKey = req.headers.get("X-Chat-API-Key");
+  const embeddingApiKey = req.headers.get("X-Embedding-API-Key");
   const { messages, tools } = requestData;
 
   // Set up embeddings with timeout
@@ -26,6 +28,7 @@ export async function POST(req: NextRequest) {
       ? new OpenAIEmbeddings({
           model: embeddingModel || "text-embedding-3-small",
           timeout: 10000, // 10 second timeout
+          apiKey: embeddingApiKey || "",
         })
       : new OllamaEmbeddings({
           model: "nomic-embed-text",
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
   const store = await UpstashVectorStore.fromExistingIndex(embeddings, {
     index,
   });
-  const retriever = store.asRetriever({ filter: "", k: 3 });
+  const retriever = store.asRetriever({ filter: `userId = '${userId}'`, k: 3 });
 
   // Get the last message for retrieval
   const lastMessage = messages[messages.length - 1];
@@ -58,7 +61,9 @@ export async function POST(req: NextRequest) {
     // Extract text content safely
     const queryText = Array.isArray(lastMessage.content)
       ? lastMessage.content
-          .map((item) => (typeof item === "string" ? item : item.text || ""))
+          .map((item: any) =>
+            typeof item === "string" ? item : item.text || "",
+          )
           .join(" ")
       : lastMessage.content.toString();
 
@@ -70,12 +75,6 @@ export async function POST(req: NextRequest) {
       // Continue without retrieved docs if there's an error
     }
   }
-
-  // Log diagnostic information
-  console.log("Messages:", messages ? messages.length : "undefined");
-  console.log("API Key present:", !!apiKey);
-  console.log("Model Name:", modelName || "undefined");
-  console.log("Retrieved docs count:", retrievedDocs.length);
 
   // Prepare context from retrieved documents
   let contextText = "";
@@ -89,7 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Set up OpenAI client
-  const openai = createOpenAI({ apiKey });
+  const openai = createOpenAI({ apiKey: chatApiKey || "" });
 
   // Stream response
   const result = streamText({

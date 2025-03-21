@@ -26,15 +26,11 @@ import short from "short-uuid";
 import { toast } from "sonner";
 
 type EmbeddingInfoComponentProps = {
-  embeddingId?: string;
-  upstash_vector_url: string;
-  upstash_vector_token: string;
+  userId?: string;
 };
 
 const EmbeddingInfoComponent: React.FC<EmbeddingInfoComponentProps> = ({
-  embeddingId,
-  upstash_vector_url,
-  upstash_vector_token,
+  userId,
 }) => {
   const {
     items,
@@ -99,26 +95,31 @@ const EmbeddingInfoComponent: React.FC<EmbeddingInfoComponentProps> = ({
 
   const embedDocuments = async (urls: string[]) => {
     const contentItems = items.filter((element) => urls.includes(element.url));
-    console.log(embeddingModel, embeddingProvider);
-    console.log(openAiAPIKey);
-    // const response = await fetch(
-    //   embeddingProvider == "openai"
-    //     ? `/api/embed/openai?model=${embeddingModel}`
-    //     : `/api/embed/ollama?model=${embeddingModel}`,
-    //   {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //       Authorization: `Bearer ${embeddingProvider == "openai" ? openAiAPIKey : undefined}, `,
-    //     },
-    //     body: JSON.stringify({ contentItems }),
-    //   },
-    // );
-    // const data = response.json();
-    // if (!response.ok) {
-    //   return null;
-    // }
-    // return data;
+    console.log(embeddingProvider, embeddingModel, openAiAPIKey);
+    const response = await fetch(
+      embeddingProvider == "openai"
+        ? `/api/embed/openai?model=${embeddingModel}`
+        : `/api/embed/ollama?model=${embeddingModel}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(embeddingProvider === "openai" && openAiAPIKey
+            ? { Authorization: `Bearer ${openAiAPIKey}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          contentItems,
+          embeddingModel,
+          userId,
+        }),
+      },
+    );
+    const data = response.json();
+    if (!response.ok) {
+      return null;
+    }
+    return data;
   };
 
   const handleDelete = (url: string) => {

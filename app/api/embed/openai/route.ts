@@ -10,7 +10,7 @@ import { EmbeddedContentItem } from "@/lib/types";
 export async function POST(req: NextRequest) {
   try {
     const requestData = await req.json();
-    const { contentItems, embeddingModel } = requestData;
+    const { contentItems, embeddingModel, userId } = requestData;
     const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
     const MAX_CONTENT_LENGTH = 2048; // Reduced from 8000 to avoid token limits
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       token: process.env.UPSTASH_VECTOR_TOKEN_1536,
     });
     const embeddings = new OpenAIEmbeddings({
-      model: embeddingModel || "text-embedding-ada-002",
+      model: embeddingModel || "text-embedding-3-small",
       apiKey: apiKey,
     });
 
@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
                 id: short.generate(),
                 chunkIndex: i,
                 totalChunks: chunks.length,
+                userId: userId,
               },
             };
 
