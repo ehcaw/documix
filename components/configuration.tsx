@@ -28,6 +28,7 @@ const MODEL_OPTIONS = {
     "llama-3.3-70b-versatile",
     "deepseek-r1-distill-llama-70b",
     "qwen-qwq-32b",
+    "qwen-2.5-coder-32b",
   ],
 };
 

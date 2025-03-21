@@ -12,7 +12,7 @@ class DocumentationScraper {
   visitedUrls: Set<string> = new Set();
   textContent: ContentItem[] = [];
   baseUrl: string = "";
-  maxDepth: number = 5;
+  maxDepth: number = 6;
   cache: Redis = redis;
 
   async canScrape(url: string): Promise<boolean> {
