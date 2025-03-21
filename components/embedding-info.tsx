@@ -97,201 +97,28 @@ const EmbeddingInfoComponent: React.FC<EmbeddingInfoComponentProps> = ({
     }
   }, [open, embeddingProvider, checkOllamaStatus]);
 
-  // useEffect(() => {
-  // useEffect(() => {
-  //   const initializeVectorStore = async () => {
-  //     try {
-  //       setModelError(null);
-
-  //       const embeddings = await createEmbeddings(
-  //         embeddingModel,
-  //         embeddingProvider,
-  //       );
-  //       const index = new Index({
-  //         url:
-  //           embeddingProvider == "openai"
-  //             ? process.env.NEXT_PUBLIC_UPSTASH_VECTOR_URL_1536
-  //             : process.env.NEXT_PUBLIC_UPSTASH_VECTOR_URL_768,
-  //         token:
-  //           embeddingProvider == "openai"
-  //             ? process.env.NEXT_PUBLIC_UPSTASH_VECTOR_TOKEN_1536
-  //             : process.env.NEXT_PUBLIC_UPSTASH_VECTOR_TOKEN_768,
-  //       });
-  //       const store = new UpstashVectorStore(embeddings, { index });
-
-  //       setVectorStore(store);
-  //       setIsModelReady(true);
-  //     } catch (error) {
-  //       console.error("Failed to initialize vector store:", error);
-  //       setModelError(error instanceof Error ? error.message : String(error));
-  //       setIsModelReady(false);
-  //     }
-  //   };
-
-  //   initializeVectorStore();
-  // }, [
-  //   embeddingModel,
-  //   embeddingProvider,
-  //   upstash_vector_url,
-  //   upstash_vector_token,
-  // ]);
-
-  // const createEmbeddings = async (
-  //   embeddingModel: string,
-  //   embeddingProvider: string,
-  // ) => {
-  //   if (embeddingProvider === "openai") {
-  //     return new OpenAIEmbeddings({
-  //       apiKey: configurationStore.getState().openAiAPIKey,
-  //       model: embeddingModel,
-  //     });
-  //   } else if (embeddingProvider === "ollama") {
-  //     // Create the embeddings instance
-  //     const ollamaEmbeddings = new OllamaEmbeddings({
-  //       model: embeddingModel,
-  //       baseUrl: "http://localhost:11434",
-  //     });
-
-  //     // Test if the model is actually available
-  //     try {
-  //       // Try to embed a simple test string
-  //       const embeddings = await ollamaEmbeddings.embedQuery("Test connection");
-  //       return ollamaEmbeddings;
-  //     } catch (error) {
-  //       console.error("Ollama embedding model check failed:", error);
-  //       throw new Error(
-  //         `Ollama embedding model "${embeddingModel}" is not available. ` +
-  //           `Make sure Ollama is running and the model is installed with: ollama pull ${embeddingModel}`,
-  //       );
-  //     }
-  //   }
-
-  //   throw new Error(`Embedding provider "${embeddingProvider}" not supported`);
-  // };
-
-  const handleEmbedSingle = async (url: string) => {
-    if (!url) {
-      return;
-    }
-    const contentItem = items.find((element) => element.url === url);
-    if (!contentItem) {
-      return;
-    }
-    const document: Document = {
-      pageContent: contentItem?.content,
-      metadata: {
-        url: contentItem?.url,
-        title: contentItem?.title,
-        id: short.generate(),
-        // adding a field for which user added this document might be useful
-      },
-    };
-    await vectorStore?.addDocuments([document], {
-      ids: [document.metadata.id],
-    });
-    let updatedEmbeddedItems = embeddedItems.map((item) => {
-      if (item.url == url) {
-        item.embedded = true;
-      }
-      return item;
-    });
-    updateEmbeddedItems(updatedEmbeddedItems);
-    toast("Document embedded successfuly! Feel free to chat");
-  };
-
-  const handleEmbedMultiple = async (urls: string[]) => {
-    if (urls.length === 0) {
-      return;
-    }
-
-    const contentItems = items.filter((element) => urls.includes(element.url));
-    const MAX_CONTENT_LENGTH = 8000; // Adjust based on your model's limitations
-
-    // Process each item individually to handle large content
-    for (const contentItem of contentItems) {
-      try {
-        // If content is too long, split it into chunks
-        if (contentItem.content.length > MAX_CONTENT_LENGTH) {
-          const chunks = [];
-          for (
-            let i = 0;
-            i < contentItem.content.length;
-            i += MAX_CONTENT_LENGTH
-          ) {
-            chunks.push(
-              contentItem.content.substring(i, i + MAX_CONTENT_LENGTH),
-            );
-          }
-
-          // Create a document for each chunk
-          for (let i = 0; i < chunks.length; i++) {
-            const document: Document = {
-              pageContent: chunks[i],
-              metadata: {
-                url: contentItem.url,
-                title: `${contentItem.title} (part ${i + 1}/${chunks.length})`,
-                id: short.generate(),
-                chunkIndex: i,
-                totalChunks: chunks.length,
-              },
-            };
-
-            await vectorStore?.addDocuments([document], {
-              ids: [document.metadata.id],
-            });
-          }
-        } else {
-          // Handle normal-sized content
-          const document: Document = {
-            pageContent: contentItem.content,
-            metadata: {
-              url: contentItem.url,
-              title: contentItem.title,
-              id: short.generate(),
-            },
-          };
-          await vectorStore?.addDocuments([document], {
-            ids: [document.metadata.id],
-          });
-        }
-
-        // Update embedded status
-        let updatedEmbeddedItems = embeddedItems.map((item) => {
-          if (item.url === contentItem.url) {
-            item.embedded = true;
-          }
-          return item;
-        });
-        updateEmbeddedItems(updatedEmbeddedItems);
-      } catch (error) {
-        console.error(`Error embedding ${contentItem.url}:`, error);
-        toast.error(`Failed to embed ${contentItem.title}`);
-      }
-    }
-
-    toast("Documents embedded successfully! Feel free to chat");
-  };
-
   const embedDocuments = async (urls: string[]) => {
     const contentItems = items.filter((element) => urls.includes(element.url));
-    const response = await fetch(
-      embeddingProvider == "openai"
-        ? `/api/embed/openai?model=${embeddingModel}`
-        : `/api/embed/ollama?model=${embeddingModel}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${embeddingProvider == "openai" ? openAiAPIKey : undefined}, `,
-        },
-        body: JSON.stringify({ contentItems }),
-      },
-    );
-    const data = response.json();
-    if (!response.ok) {
-      return null;
-    }
-    return data;
+    console.log(embeddingModel, embeddingProvider);
+    console.log(openAiAPIKey);
+    // const response = await fetch(
+    //   embeddingProvider == "openai"
+    //     ? `/api/embed/openai?model=${embeddingModel}`
+    //     : `/api/embed/ollama?model=${embeddingModel}`,
+    //   {
+    //     method: "POST",
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //       Authorization: `Bearer ${embeddingProvider == "openai" ? openAiAPIKey : undefined}, `,
+    //     },
+    //     body: JSON.stringify({ contentItems }),
+    //   },
+    // );
+    // const data = response.json();
+    // if (!response.ok) {
+    //   return null;
+    // }
+    // return data;
   };
 
   const handleDelete = (url: string) => {

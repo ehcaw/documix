@@ -5,6 +5,7 @@ import { Index } from "@upstash/vector";
 import type { Document } from "@langchain/core/documents";
 import { UpstashVectorStore } from "@langchain/community/vectorstores/upstash";
 import { OllamaEmbeddings } from "@langchain/ollama";
+import { OpenAIEmbeddings } from "@langchain/openai";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -20,9 +21,15 @@ export async function POST(req: NextRequest) {
   // Based on your logs, it looks like messages are directly in the request body
   const { messages, tools } = requestData;
 
-  const embeddings = new OllamaEmbeddings({
-    model: "nomic-embed-text",
-  });
+  const embeddings =
+    embeddingProvider == "openai"
+      ? new OpenAIEmbeddings({
+          model: embeddingModel || "text-embedding-3-small",
+          timeout: 10000, // 10 second timeout
+        })
+      : new OllamaEmbeddings({
+          model: "nomic-embed-text",
+        });
   const index = new Index({
     url:
       embeddingProvider === "openai"
